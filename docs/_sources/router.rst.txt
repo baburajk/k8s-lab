@@ -80,6 +80,24 @@ Step 3: Configure General Settings
          * - Save
            - Press Save
 
+.. note::
+
+   This is a note box.
+   It will have a blue background automatically when using `sphinx_rtd_theme`.
+
+.. warning::
+
+   This is a **warning** box.
+
+   Use it to alert users about something critical or dangerous.
+
+.. tip::
+
+   This is a helpful **tip**.
+
+   Use it to give users advice, shortcuts, or suggestions.
+
+
 Network Topology Diagram
 ------------------------
 
