@@ -1,0 +1,12 @@
+/* Light green background for code blocks */
+div.highlight pre {
+    background-color: #eaffea; /* pale green */
+    padding: 1em;
+    border-radius: 4px;
+}
+
+code.literal {
+    background-color: #eaffea !important;
+    padding: 0.2em 0.4em;
+    border-radius: 4px;
+}

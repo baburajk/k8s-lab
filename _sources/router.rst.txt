@@ -1,0 +1,166 @@
+Setup Router A
+==============
+
+Step 1: Configure Network Interfaces
+-------------------------------------
+- LAN: `igc0` - IP: 192.168.1.1/24
+- WAN: `igc1` - IP: DHCP
+- Peering: `igc2` - IP: 10.1.1.1/30
+
+Step 2: Create Firewall Rules
+------------------------------
+- Action: Pass
+- Interface: Peering (igc2)
+- Direction: In
+- Protocol: TCP
+- Source: Peering Network
+- Destination Port: 179 (BGP)
+- Description: Allow inbound BGP traffic from peer
+
+Step 3: Configure General Settings
+-----------------------------------
+- Routing: Enable
+- Firewall Rules: Deselect (since custom rules are created)
+- Save: Press Save
+
+.. tabs::
+
+   .. tab:: Interface Configuration
+
+      .. list-table::
+         :header-rows: 1
+
+         * - Interface
+           - Configuration
+         * - LAN Interface
+           - igc0 - IP: 192.168.200.1/24
+         * - WAN Interface
+           - igc1 - IP: DHCP
+         * - Peering Interface
+           - igc2 - IP: 10.1.1.2/30
+
+
+
+   .. tab:: Firewall Rules
+
+      .. list-table::
+         :header-rows: 1
+
+         * - Field
+           - Value
+         * - Action
+           - Pass
+         * - Interface
+           - Peering (igc2)
+         * - Direction
+           - In
+         * - Protocol
+           - TCP
+         * - Source
+           - Peering Network
+         * - Destination Port
+           - 179 (BGP)
+         * - Description
+           - Allow inbound BGP traffic
+
+      After saving these settings, OPNsense will enable routing functionality.
+      Make sure custom rules are active to avoid using automatic ones.
+
+   .. tab:: General Settings
+
+      .. list-table::
+         :header-rows: 1
+
+         * - Setting
+           - Value
+         * - Routing
+           - Enable
+         * - Firewall Rules
+           - Deselect
+         * - Save
+           - Press Save
+
+Network Topology Diagram
+------------------------
+
+.. code-block:: text
+
+
+                                      +--------------------------------+
+                                      |         External Client        |
+                                      |   curl https://k8s-api.lab.local|
+                                      +---------------+----------------+
+                                                      |
+                                        DNS: k8s-api.lab.local → 192.168.2.100
+                                                      |
+                                      +---------------v----------------+
+                                      |          OPNSense Firewall     |
+                                      |  LAN IP: 192.168.2.61          |
+                                      |  - HAProxy VIP: 192.168.2.100  |
+                                      |  - BGP ASN: 64500              |
+                                      +---------------+----------------+
+                                                      |
+                                                      | NAT to 192.168.122.0/24
+                                                      |
+                                    +-----------------v-----------------+
+                                    |     NAT'd K8s Control Plane VMs   |
+                                    |       Subnet: 192.168.122.0/24    |
+                                    +----------------+------------------+
+                                                    |
+              +--------------------------+----------+--------------------------+
+              |                          |                                     |
+    +----------v----------+  +-----------v----------+              +-----------v----------+
+    | k8s-master-1         |  | k8s-master-2         |              | k8s-master-3         |
+    | IP: 192.168.122.104  |  | IP: 192.168.122.105  |              | IP: 192.168.122.106  |
+    | - kube-apiserver     |  | - kube-apiserver     |              | - kube-apiserver     |
+    | - kubelet            |  | - kubelet            |              | - kubelet            |
+    | - FRR (ASN 64512)    |  | - FRR (ASN 64512)    |              | - FRR (ASN 64512)    |
+    +----------------------+  +----------------------+              +----------------------+
+
+            - BGP Advertises:
+              - Virtual IP: 192.168.2.100 (API VIP)
+              - Service LB IPs (e.g., 192.168.122.210)
+
+                                    Kubernetes Networking
+
+            Node CIDRs:
+                - master-1: 10.10.0.0/24
+                - master-2: 10.10.1.0/24
+                - master-3: 10.10.2.0/24
+
+            Example Pod IPs:
+                - nginx-pod on master-1: 10.10.0.15
+                - coredns on master-2: 10.10.1.10
+
+            Service Cluster IP Range: 10.96.0.0/12
+                - kube-dns: 10.96.0.10
+                - nginx-lb (LoadBalancer type): 192.168.122.210
+
+            LoadBalancer BGP Advertisement:
+                - Cilium BGP advertises 192.168.122.210/32 to OPNSense
+                - OPNSense routes external requests directly to Node IP
+
+                                      Cilium CNI (Pod-to-Pod Routing)
+                                  +-----------------------------------+
+                                  |  Cilium agent runs on each node   |
+                                  |  Handles Pod IP allocation        |
+                                  |  Handles BGP + native routing     |
+                                  +-----------------------------------+
+
+Network Topology Diagram
+------------------------
+
+.. code-block:: text
+
+   +-----------------+     Peering Network      +-----------------+
+   |                 |      203.0.113.0/30      |                 |
+   |    Router A     |--------------------------|    ISP Router   |
+   |     AS65011     | WAN A                ISP |     AS64496     |
+   |                 | 203.0.113.1  203.0.113.2 |                 |
+   +-----------------+                          +-----------------+
+  192.168.1.1 |                                             |
+              |                                             |
+    LAN A: 192.168.1.0/24                               Public AS
+              |                                             |
+              |                                             |
+    Device A: 192.168.1.201                                 |
